@@ -30,3 +30,15 @@ The course is based on the textbook *Statistical Rethinking* (2nd edition, 2020)
 | 12          | 18           | Varying slopes, Gaussian processes (chapter 14)                         |
 | 13          | 19           | Measurement error, missing data, theory-driven models (chapters 15, 16) |
 
+## Exam
+
+- Portfolio consisting of 3 assignments
+- Each assignment will require you to create an R Markdown notebook
+consisting of a mix of text and code.
+
+- Due
+  1. End of week 9 (Sunday 6 March, 23:59)
+  2. End of week 13 (Sunday 3 April, 23:59)
+  3. End of week 17 (Sunday 1 May, 23:59)
+
+You will receive a (short) feedback message from us on your portfolio assignments that you can use for improvements before finalizing your hand-ins.
