@@ -1,0 +1,83 @@
+---
+title: "Methods 4 -- Portfolio Assignment 1"
+output: html_notebook
+---
+
+- *Type:* Group assignment
+- *Due:* 6 March 2022, 23:59
+
+Okay here are some tasks to do for the first portfolio ! 
+Everything is based on the book and can be solved with tricks from there.
+
+Have fun :)
+
+Trigger alert for anyone who has recently experienced a pandemic.
+
+*-- Peter and Chris*
+
+# Pandemic Exercises
+
+## 1) Testing Efficiency
+
+Imagine there was a global pandemic.
+
+It's a bit difficult, I know.
+
+Maybe a new version of the old SARS-CoV turns out to be really infectious, or something like that.
+
+A test is developed that is cheap and quick to use, and the government asks you to determine its efficiency.
+
+To do this, they find X people that they know for sure are infected, and X people that they know for sure are not infected. *NB: This is not always possible. For example, there is an ongoing global pandemic in the real world - maybe you heard of it -where a 100% sure test doesn't exist, as far as I know. But let's ignore that. The government finds a wizard who can tell for sure, but he wants a lot of money and he's really slow too.*
+
+Okay, so X infected people take the test, and X uninfected people take the test. See the results below. P means positive, N means negative.
+
+- Infected:
+
+\[P, N, P, P, N, P, P, N, N, N, P, P, N, P, P, N, N, P, N, P\]
+
+- Uninfected:
+
+\[P, N, N, P, N, P, P, N, N, N, P, N, N, N, N, P, P, N, N, N\]
+
+**A)** Estimate the probabilities of testing positive given that you're infected, and given that you're not infected. Use the grid approximation method as in the book. Use a prior you can defend using. Report the full posterior probability distribution for each case (we can do better than just a single value!).
+
+**B)** The government says that they find probability distributions difficult to use. They ask you to provide them with a confidence interval of 95% within which the 'real' probability can be found. Do it.
+
+**C)** The government says that their voters find confidence intervals difficult to read. In addition, they are so wide that it looks like the government doesn't know what they're doing. They want a point estimate instead. Give them one.
+
+## 2) Dark Cellars
+
+Months pass. Thousands of people are tested by the wizards of the world governments. A fancy company analyses the data, and determine, with very high confidence they say, the probability of testing positive with the current test. They give the following point estimates:
+
+- A 53% chance of testing positive if you are infected.
+- A 45% chance of testing positive if you are not infected.
+
+*NB: These numbers also happen to be real estimates for the efficiency of the COVID kviktest[^1]. Remember that the actual Danish government doesn't have any wizards, though.*
+
+**A)** You are sitting in your dark cellar room, writing an apology to the Danish government, when you receive a positive test result on your phone. Oh, that party last weekend.
+In order to fight the boredom of isolation life, you start doing statistical inference. Using Bayes theorem, estimate the probability that you are infected, given that it is *a priori* equally likely to be infected or not to be.
+
+**B)** A quick Google search tells you that about 546.000[^2] people in Denmark are infected right now. Use this for a prior instead.
+
+**C)** A friend calls and says that they have been determined by a wizard to be infected. You and your friend danced tango together at the party last weekend. It has been estimated that dancing tango with an infected person leads to an infection 32% of the time[^3]. Use this information to construct a prior instead.
+
+**D)** You quickly run and get two more tests. One is negative, the other positive. Update your estimate.
+
+**E)** In a questionnaire someone sent out for their exam project, you have to answer if you think you are infected. You can only answer yes or no (a bit like making a point estimate). What do you answer?
+
+**F)** You are invited to a party. They ask if you are infected. They also think that if you are in doubt, staying home is safer. Because they studied statistics, they formulate this as preferring that you used an asymmetric loss function when making your decision: it is three times worse to falsely answer not infected and come sick to the party, as compared to to falsely answering infected and staying home while healthy. What do you answer?
+
+## 3) Causal Models
+
+A problem from our textbook *Statistical Rethinking (2nd ed.)* (p. 160):
+
+> **5H4.** Here is an open practice problem to engage your imagination. In the divorce data, states in the southern United States have many of the highest divorce rates. Add the `South` indicator variable to the analysis. First, draw one or more DAGs that represent your ideas for how Southern American culture might influence any of the other three variables ($D$, $M$, or $A$). Then list the testable implications of your DAGs, if there are any, and fit one or more models to evaluate the implications. What do you think the influence of "Southernness" is?
+
+
+[^1]: I was lazy and just used this source:
+
+    https://www.ssi.dk/aktuelt/nyheder/2021/antigentest-gav-47-falsk-negative-svar
+
+[^2]: https://www.worldometers.info/coronavirus/#countries
+
+[^3]: That one I just made up.
