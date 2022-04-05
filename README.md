@@ -25,10 +25,8 @@ The course is based on the textbook *Statistical Rethinking* (2nd edition, 2020)
 | 7           | 12           | Interactions (chapter 8)                                                |
 | 8           | 13           | Markov chain Monte Carlo, maximum entropy (chapters 9, 10)              |
 | 9           | 14           | Generalized linear models (chapters 11)                                 |
-| 10          | 16           | Mixture models, ordered categorical outcomes/predictors (chapter 12)    |
-| 11          | 17           | Multilevel models (chapter 13)                                          |
-| 12          | 18           | Varying slopes, Gaussian processes (chapter 14)                         |
-| 13          | 19           | Measurement error, missing data, theory-driven models (chapters 15, 16) |
+| 10          | 17           | Mixture models, ordered categorical outcomes/predictors (chapter 12)    |
+| 11          | 18           | Multilevel models (chapter 13)                                          |
 
 ## Exam
 
