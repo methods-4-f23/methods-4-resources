@@ -1,0 +1,742 @@
+---
+title: 'Methods 4: Assignments Week 9'
+output: html_document
+---
+
+## Setup
+```{r}
+library(rethinking)
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+library(tidyverse)
+```
+
+## Selected problems from Chapters 7-9 of *Statistical Rethinking*.
+
+> **7E2.** Suppose a coin is weighted such that, when it is tossed and lands on a table, it comes up heads 70% of the time. What is the entropy of this coin?
+
+The entropy $H$ of probability distribution $p(x)$ is defined as
+
+$$
+H[p(x)] := -\sum_x p(x) \log p(x)
+$$
+In our case, $x \in \{\text{heads}, \text{tails}\}$ with $p(\text{heads}) = 0.7$ and $p(\text{tails}) = 0.3$. Therefore
+
+```{r}
+-0.7*log(0.7) - 0.3*log(0.3)
+```
+
+
+$$
+\begin{align}
+H &= -(p(\text{heads})\log p(\text{heads}) + p(\text{tails})\log p(\text{tails}))\\
+  &= -(0.7 \log 0.7 + 0.3 \log 0.3)\\
+  &\approx 0.61 
+\end{align}
+$$
+
+> **7E3.** Suppose a four-sided die is loaded such that, when tossed onto a table, it shows "1" 20%, "2" 25%, "3" 25%, and "4" 30% of the time. What is the entropy of this die?
+
+According to the same logic as above:
+
+```{r}
+-0.2*log(0.2) - 2*0.25*log(0.25) - 0.3*log(0.3)
+```
+
+
+> **7E4.** Suppose another four-sided die is loaded such that it never shows "4." The other three sides show equally often. What is the entropy of this die?
+
+The problem here is that we need to calculate $0 \log 0$ but $\log 0$ is not defined. However, we can use the fact that
+
+$$
+\lim_{x \rightarrow 0} x \log x = 0
+$$
+to define $0 \log 0 := 0$. Then we get
+
+```{r}
+-3*1/3*log(1/3) - 0
+```
+
+for the entropy.
+
+> **7M5.** Provide an informal explanation of why informative priors reduce overfitting.
+
+The data consist of both signal and noise. Informative priors help the signal come through because they discourage posteriors that are a priori implausible and therefore most likely due to noise.
+
+> **7M6.** Provide an informal explanation of why overly informative priors result in underfitting.
+
+Overly informative priors dominate the posteriors such that the data have little weight in determining them. Therefore the data are not well fitted.
+
+> **8H5.** Consider the `data(Wines2012)` data table. These data are expert ratings of 20 different French and American wines by 9 different French and American judges. Your goal is to model `score`, the subjective rating assigned by each judge to each wine. I recommend standardizing it. In this problem, consider only variation among judges and wines. Construct index variables of `judge` and `wine` and then use these index variables to construct a linear regression model. Justify your priors. You should end up with 9 judge parameters and 20 wine parameters. How do you interpret the variation among individual judges and individual wines? Do you notice any patterns, just by plotting the differences? Which judges gave the highest/lowest ratings? Which wines were rated worst/best on average?
+
+### Explore data
+
+Load the data.
+
+```{r}
+data(Wines2012)
+```
+
+Get a quick overview.
+
+```{r}
+(wines <- as_tibble(Wines2012))
+```
+
+
+```{r}
+summary(wines)
+```
+
+Remove dots from variable names to save ourselves trouble with Stan later.
+
+```{r}
+wines <- wines %>% rename(wine_amer = wine.amer, judge_amer = judge.amer)
+```
+
+Which wines are white, and which are American?
+
+```{r}
+(wines %>% select(wine, flight, wine_amer) %>% distinct)
+```
+
+How many white and red wines are American and French, respectively?
+
+```{r}
+(wines %>% select(wine, flight, wine_amer) %>% distinct %>% count(flight, wine_amer))
+```
+
+Which judges are American, and which are French?
+
+```{r}
+(wines %>% select(judge, judge_amer) %>% distinct)
+```
+
+
+In summary, this tells us that there were 9 judges, 5 American and 4 French, who judged 20 wines: 4 French reds, 6 American reds, 4 French whites, and 6 American whites.
+
+### Preprocess data
+
+Standardize scores.
+
+```{r}
+(wines <- wines %>% mutate(std_score = standardize(score)))
+```
+
+Create index variables for judges and wines.
+
+```{r}
+(wines <- wines %>% mutate(white = as.integer(flight) - 1,
+                           wine_idx = as.integer(wine),
+                           judge_idx = as.integer(judge)))
+```
+
+Save (e.g., for later use with Julia).
+
+```{r}
+write_csv(wines, file = "wines.csv")
+```
+
+### Define and fit model
+
+Define and fit the model using `quap()`.
+
+```{r}
+wine_m1_quap <- quap(
+    alist(
+        std_score ~ dnorm(mu, sigma),
+        mu <- a_wine[wine_idx] + a_judge[judge_idx],
+        a_wine[wine_idx] ~ dnorm(0,0.5),
+        a_judge[judge_idx] ~ dnorm(0,0.5),
+        sigma ~ dexp(1)
+    ),
+    data = wines,
+)
+```
+
+```{r}
+precis(wine_m1_quap, depth = 2)
+```
+
+```{r}
+plot(precis(wine_m1_quap, depth = 2))
+```
+
+Do it again using `ulam()`. In order not to confuse `ulam()`, we make a stripped-down data frame containing only the variables used.
+
+```{r}
+wines_df <- wines %>% select(std_score, wine_idx, judge_idx)
+```
+
+
+```{r}
+wine_m1_ulam <- ulam(
+    alist(
+        std_score ~ dnorm(mu, sigma),
+        mu <- a_wine[wine_idx] + a_judge[judge_idx],
+        a_wine[wine_idx] ~ dnorm(0,0.5),
+        a_judge[judge_idx] ~ dnorm(0,0.5),
+        sigma ~ dexp(1)
+    ),
+    data = wines_df,
+    chains = 4,
+    refresh = 0
+)
+```
+
+```{r}
+precis(wine_m1_ulam, depth = 2)
+```
+
+```{r}
+plot(precis(wine_m1_ulam, depth = 2))
+```
+
+The results are essentially the same when fitting with `quap()` as with `ulam()`, reflecting the fact that quadratic approximation works well with simple regression models.
+
+### Justify priors
+
+In order to justify our priors, we compare the prior predictive distribution of scores to the observed distribution of scores. Note that we do not have to average over conditions since the prior predictive is the same for all of them. Without loss of generality, we can arbitrarily pick the wine and judge with indices 1.
+
+```{r}
+wine_m1_prior <- extract.prior(wine_m1_ulam, 1e4, refresh=0)
+```
+
+
+```{r}
+score_prior_pred1 <- sim(wine_m1_ulam,
+                        post = wine_m1_prior,
+                        data = data.frame(wine_idx = 1, judge_idx = 1))
+```
+
+Bootstrap the standardized score distribution. This simply means resampling the observed scores with replacement for as many times as there are samples in the prior predictive.
+
+```{r}
+std_score_bs1 <- sample(wines_df$std_score, length(score_prior_pred1), replace = TRUE)
+```
+
+```{r}
+(score_sim1 <- tibble(predicted = score_prior_pred1, observed = std_score_bs1) %>%
+    pivot_longer(cols = c(predicted, observed),
+                 names_to = "status",
+                 values_to = "score"))
+```
+
+```{r}
+ggplot(score_sim1, aes(x = score, colour = status, fill = status)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "Prior predictive density of score",
+         x = "standardized score",
+         y = "density") +
+    scale_fill_brewer(palette = "Set1")
+```
+
+The prior predictive allows for a just slightly broader distribution of scores than actually observed. This means our priors are about right. They should not be wider since the conservative choice is to have _tight_ priors.
+
+### Interpret posterior
+
+This allows us finally to interpret our results. The main takeaway from this analysis is perhaps that there are substantial differences between the average scores different wines receive and also between the average scores different judges give. This motivates taking the analysis of this dataset further with more interesting models.
+
+### Posterior predictive simulation
+
+We will skip this because our only goal with this model was to see whether there are any interesting patterns in the data at all. Instead, we will now define models which allow us to ask the questions we are interested in: How did flight (red or white) affect a wine's score? How did the wine's origin affect its score? And how did the judges' origin affect the scores they gave? Note the past tense. The answers only relate to the data set we have. Asking: "How _does_ flight affect a wine's score?" implies that we can generalize from these wines and these judges to wines in general and judges in general. Perhaps we can, but that is a question we cannot answer on the basis of these data alone.
+
+> **8H6.** Now consider three features of the wines and judges:
+>
+> 1. `flight`: Whether the wine is red or white.
+> 2. `wine.amer`: Indicator variable for American wines.
+> 3. `judge.amer`: Indicator variable for American judges.
+>
+> Use indicator or index variables to model the influence of these features on the scores. Omit the individual judge and wine index variables from Problem 1. Do not include interaction effects yet. Again justify your priors. What do you conclude about the differences among the wines and judges? Try to relate the results to the inferences in the previous problem.
+
+### Create index variables
+
+The dataset in its original form contains indicator variables (e.g., `judge_amer` - "Is the judge American?" - "yes": 1, "no": 0). However, in what follows, we want to use index variables because only then do we have the same width of prior predictive distribution for all conditions.
+
+Having said this, there is nothing wroing with doing the analysis using index variables. With reasonable priors, the results will be the same.
+
+Meaning of the resulting indices:
+
+`flight_idx`: 1 - Red; 2 - White
+`wnat_idx`: 1 - French; 2 - American
+`jnat_idx`: 1 - French; 2 - American
+
+```{r}
+wines_df2 <- wines %>% 
+    mutate(flight_idx = as.integer(flight)) %>%
+    mutate(wnat_idx = wine_amer + 1) %>%
+    mutate(jnat_idx = judge_amer + 1) %>%
+    select(std_score, flight_idx, wnat_idx, jnat_idx) 
+```
+
+Write out the new data frame.
+
+```{r}
+write_csv(wines_df2, file = "wines2.csv")
+```
+
+### Define and fit model
+
+```{r}
+wine_m2 <- ulam(
+    alist(
+        std_score ~ dnorm(mu, sigma),
+        mu <- a_flight[flight_idx] + a_wnat[wnat_idx] + a_jnat[jnat_idx],
+        a_flight[flight_idx] ~ dnorm(0,0.5),
+        a_wnat[wnat_idx] ~ dnorm(0,0.5),
+        a_jnat[jnat_idx] ~ dnorm(0,0.5),
+        sigma ~ dexp(1)
+    ),
+    data = wines_df2,
+    chains = 4,
+    refresh = 0
+)
+```
+
+```{r}
+precis(wine_m2, depth = 2)
+```
+
+```{r}
+plot(precis(wine_m2, depth = 2))
+```
+
+### Justify priors
+
+```{r}
+wine_m2_prior <- extract.prior(wine_m2, 1e4, refresh=0)
+```
+
+We sample from the prior predictive for all conditions (combinations of
+predictors) in the experiment. Note however that with our model, all conditions
+have the same prior predictive.
+
+```{r}
+score_prior_pred2 <- sim(wine_m2,
+                         post = wine_m2_prior,
+                         data = data.frame(flight_idx = c(1,2,1,2,1,2,1,2),
+                                           wnat_idx = c(1,1,2,2,1,1,2,2),
+                                           jnat_idx = c(1,1,1,1,2,2,2,2)))
+```
+
+Bootstrap the standardized score distribution.
+
+```{r}
+std_score_bs2 <- sample(wines_df2$std_score, length(score_prior_pred2), replace = TRUE)
+```
+
+
+```{r}
+(score_sim2 <- tibble(predicted = c(score_prior_pred2), observed = std_score_bs2) %>%
+    pivot_longer(cols = c(predicted, observed),
+                 names_to = "status",
+                 values_to = "score"))
+```
+
+```{r}
+ggplot(score_sim2, aes(x = score, colour = status, fill = status)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "Prior predictive density of score",
+         x = "standardized score",
+         y = "density") +
+    scale_fill_brewer(palette = "Set1")
+```
+
+These priors work - for the same reason as above.
+
+### Posterior predictive simulation
+
+We sample from the posterior predictive for all conditions and we give the conditions expressive names (e.g., `r_wa_jf`: red wine from America judged by a French judge).
+
+```{r}
+score_post_pred2 <- sim(wine_m2,
+                        data = data.frame(flight_idx = c(1,2,1,2,1,2,1,2),
+                                          wnat_idx = c(1,1,2,2,1,1,2,2),
+                                          jnat_idx = c(1,1,1,1,2,2,2,2)))
+colnames(score_post_pred2) <- c("r_wf_jf",
+                                "w_wf_jf",
+                                "r_wa_jf",
+                                "w_wa_jf",
+                                "r_wf_ja",
+                                "w_wf_ja",
+                                "r_wa_ja",
+                                "w_wa_ja")
+```
+
+```{r}
+(pi_score_post_pred2 <- apply(score_post_pred2, 2 , quantile, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)) %>% t)
+```
+
+```{r}
+(pi_score_post_pred2 <- pi_score_post_pred2 %>%
+    data.frame %>%
+    rownames_to_column %>%
+    as_tibble %>%
+    rename(condition = rowname) %>%
+    mutate(condition = as_factor(condition)) %>%
+    mutate(condition = fct_rev(condition)))
+```
+
+
+```{r}
+pi_score_post_pred2 %>% ggplot(aes(y=condition, x=X50.)) +
+    geom_pointrange(aes(xmin=X10., xmax=X90.), size = 0.5) +
+    geom_pointrange(aes(xmin=X25., xmax=X75.), size = 1.8, fatten = 1.8) +
+    labs(title = "Model 2: Posterior predictive distribution by condition",
+         x = "80% and 50% intervals of predicted distribution of scores")
+```
+
+Some patterns are clearly visible:
+- There is no big difference between white and red wines
+- American judges give better scores than French judges
+- French wines may get somewhat better scores than American ones (if we squint a little)
+
+In order to quantify the distributions of these predicted differences, we calculate contrasts.
+
+### Contrasts
+
+#### Red versus white
+
+_How much does the predicted score increase if we go from a white to a red wine?_
+
+In order to answer this question, we throw together the posterior predictive samples for the red wines, shuffle them (using `sample()`) so they are no longer ordered by condition, and subtract the posterior predictive samples for the white wines (we do not need to shuffle these; shuffling one of the two vectors being subracted is enough to randomize the difference).
+
+We give every condition the same weight in the samples we subtract from each other, but that is our choice. We could just as well assume an imbalance between French and American wines or judges and weight the conditions accordingly when constructing the samples.
+
+```{r}
+colnames(score_post_pred2)
+```
+
+```{r}
+(contr2 <- tibble("r-w" = sample(sample(c(score_post_pred2[,c(1,3,5,7)])) - c(score_post_pred2[,c(2,4,6,8)]), 1000)))
+```
+
+#### French wine versus American wine
+
+_How much does the predicted score increase when we replace an American wine with a French one?_
+
+Again we assume balance across conditions (i.e., red and white wines have the same weight, and so do French and American judges).
+
+```{r}
+(contr2 <- contr2 %>% mutate("wf-wa" = sample(sample(c(score_post_pred2[,c(1,2,5,6)])) - c(score_post_pred2[,c(3,4,7,8)]), 1000)))
+```
+
+#### French judge versus American judge
+
+```{r}
+(contr2 <- contr2 %>% mutate("jf-ja" = sample(sample(c(score_post_pred2[,c(1,2,3,4)])) - c(score_post_pred2[,c(5,6,7,8)]), 1000)))
+```
+
+# Interaction between origin of wine and origin of judge (origin same minus origin different)
+
+```{r}
+(contr2 <- contr2 %>% mutate("os-od" = sample(sample(c(score_post_pred2[,c(1,2,7,8)])) - c(score_post_pred2[,c(3,4,5,6)]), 1000)))
+```
+
+#### French wine versus American wine, given French judge
+
+```{r}
+(contr2 <- contr2 %>% mutate("wf-wa|jf" = sample(sample(c(score_post_pred2[,c(1,2)])) - c(score_post_pred2[,c(3,4)]), 1000)))
+```
+
+#### French wine versus American wine, given American judge
+
+```{r}
+(contr2 <- contr2 %>% mutate("wf-wa|ja" = sample(sample(c(score_post_pred2[,c(5,6)])) - c(score_post_pred2[,c(7,8)]), 1000)))
+```
+
+#### French judge versus American judge, given French wine
+
+```{r}
+(contr2 <- contr2 %>% mutate("jf-ja|wf" = sample(sample(c(score_post_pred2[,c(1,2)])) - c(score_post_pred2[,c(5,6)]), 1000)))
+```
+
+#### French judge versus American judge, given American wine
+
+```{r}
+(contr2 <- contr2 %>% mutate("jf-ja|wa" = sample(sample(c(score_post_pred2[,c(3,4)])) - c(score_post_pred2[,c(7,8)]), 1000)))
+```
+
+### Plot
+
+```{r}
+(pi_contr2 <- apply(contr2, 2 , quantile, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)) %>% t)
+```
+
+```{r}
+pi_contr2 <- pi_contr2 %>%
+    data.frame %>%
+    rownames_to_column %>%
+    as_tibble %>%
+    rename(contrast = rowname) %>%
+    mutate(contrast = as_factor(contrast)) %>%
+    mutate(contrast = fct_rev(contrast))
+```
+
+
+```{r}
+pi_contr2 %>% ggplot(aes(y=contrast, x=X50.)) +
+    geom_pointrange(aes(xmin=X10., xmax=X90.), size = 0.5) +
+    geom_pointrange(aes(xmin=X25., xmax=X75.), size = 1.8, fatten = 1.8) +
+    labs(title = "Model 2: Contrasts of posterior predictive distribution",
+         x = "80% and 50% intervals of predicted distribution of score differences")
+```
+
+We now have a quantitative handle on the patterns we saw in the posterior predictive. In particular, the predictive distribution for `os-od` tells us that we need not expect judges to favour (or disfavour) wines from their own country (on average).
+
+> **8H7.** Now consider two-way interactions among the three features. You should end up with three different interaction terms in your model. These will be easier to build, if you use indicator variables. Again justify your priors. Explain what each interaction means. Be sure to interpret the model's predictions on the outcome scale (`mu`, the expected score), not on the scale of individual parameters. You can use `link` to help with this, or just use your knowledge of the linear model instead. What do you conclude about the features and the scores? Can you relate the results of your model(s) to the individual judge and wine inferences from **8H5**?
+
+We will not go the easy way of using indicator variables just yet. Instead, we will start by using index variables.
+
+In that case we have a three-dimensional array of intercepts. Each dimension has two levels, leading to eight parameters: a different intercept for each of the eight experimental condition. Further to that, we have the error variance `sigma` as a ninth parameter.
+
+```{r}
+wine_m3 <- ulam(
+    alist(
+        std_score ~ dnorm(mu, sigma),
+        mu <- a[flight_idx, wnat_idx, jnat_idx],
+        real["2,2,2"]:a ~ dnorm(0,0.5),
+        sigma ~ dexp(1)
+    ),
+    data = wines_df2,
+    chains = 4,
+    refresh = 0
+)
+```
+
+```{r}
+precis(wine_m3, depth = 3)
+```
+
+
+```{r}
+plot(precis(wine_m3, depth = 3))
+```
+
+### Posterior predictive simulation
+
+We sample from the posterior predictive for all conditions and we give the conditions expressive names (e.g., `r_wa_jf`: red wine from America judged by a French judge).
+
+```{r}
+score_post_pred3 <- sim(wine_m3,
+                        data = data.frame(flight_idx = c(1,2,1,2,1,2,1,2),
+                                          wnat_idx = c(1,1,2,2,1,1,2,2),
+                                          jnat_idx = c(1,1,1,1,2,2,2,2)))
+colnames(score_post_pred3) <- c("r_wf_jf",
+                                "w_wf_jf",
+                                "r_wa_jf",
+                                "w_wa_jf",
+                                "r_wf_ja",
+                                "w_wf_ja",
+                                "r_wa_ja",
+                                "w_wa_ja")
+```
+
+```{r}
+(pi_score_post_pred3 <- apply(score_post_pred3, 2 , quantile, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)) %>% t)
+```
+
+```{r}
+(pi_score_post_pred3 <- pi_score_post_pred3 %>%
+    data.frame %>%
+    rownames_to_column %>%
+    as_tibble %>%
+    rename(condition = rowname) %>%
+    mutate(condition = as_factor(condition)) %>%
+    mutate(condition = fct_rev(condition)))
+```
+
+
+```{r}
+pi_score_post_pred3 %>% ggplot(aes(y=condition, x=X50.)) +
+    geom_pointrange(aes(xmin=X10., xmax=X90.), size = 0.5) +
+    geom_pointrange(aes(xmin=X25., xmax=X75.), size = 1.8, fatten = 1.8) +
+    labs(title = "Model 3: Posterior predictive distribution by condition",
+         x = "80% and 50% intervals of predicted distribution of scores")
+```
+
+Now let us compare this with the results from Model 2.
+
+```{r}
+bind_rows("2" = pi_score_post_pred2, "3" = pi_score_post_pred3, .id = "model") %>%
+    ggplot(aes(y=condition, x=X50., color=model)) +
+    geom_pointrange(aes(xmin=X10., xmax=X90.), size = 0.5, position=position_dodge(0.5)) +
+    geom_pointrange(aes(xmin=X25., xmax=X75.), size = 1.8, fatten = 1.8, position=position_dodge(0.5)) +
+    labs(title = "Comparison of Models 2 and 3: Posterior predictive distribution by condition",
+         x = "80% and 50% intervals of predicted distribution of scores")
+```
+
+We see that including interactions affects our predictions, in particular for the combination of white wines and French judges. So let us see how interactions affect our contrasts.
+
+### Contrasts
+
+```{r}
+contr3 <- tibble("r-w" = sample(sample(c(score_post_pred3[,c(1,3,5,7)])) - c(score_post_pred3[,c(2,4,6,8)]), 1000))
+contr3 <- contr3 %>% mutate("wf-wa" = sample(sample(c(score_post_pred3[,c(1,2,5,6)])) - c(score_post_pred3[,c(3,4,7,8)]), 1000))
+contr3 <- contr3 %>% mutate("jf-ja" = sample(sample(c(score_post_pred3[,c(1,2,3,4)])) - c(score_post_pred3[,c(5,6,7,8)]), 1000))
+contr3 <- contr3 %>% mutate("os-od" = sample(sample(c(score_post_pred3[,c(1,2,7,8)])) - c(score_post_pred3[,c(3,4,5,6)]), 1000))
+contr3 <- contr3 %>% mutate("wf-wa|jf" = sample(sample(c(score_post_pred3[,c(1,2)])) - c(score_post_pred3[,c(3,4)]), 1000))
+contr3 <- contr3 %>% mutate("wf-wa|ja" = sample(sample(c(score_post_pred3[,c(5,6)])) - c(score_post_pred3[,c(7,8)]), 1000))
+contr3 <- contr3 %>% mutate("jf-ja|wf" = sample(sample(c(score_post_pred3[,c(1,2)])) - c(score_post_pred3[,c(5,6)]), 1000))
+contr3 <- contr3 %>% mutate("jf-ja|wa" = sample(sample(c(score_post_pred3[,c(3,4)])) - c(score_post_pred3[,c(7,8)]), 1000))
+
+```
+
+```{r}
+(pi_contr3 <- apply(contr3, 2 , quantile, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)) %>% t)
+```
+
+```{r}
+pi_contr3 <- pi_contr3 %>%
+    data.frame %>%
+    rownames_to_column %>%
+    as_tibble %>%
+    rename(contrast = rowname) %>%
+    mutate(contrast = as_factor(contrast)) %>%
+    mutate(contrast = fct_rev(contrast))
+```
+
+
+```{r}
+pi_contr3 %>% ggplot(aes(y=contrast, x=X50.)) +
+    geom_pointrange(aes(xmin=X10., xmax=X90.), size = 0.5) +
+    geom_pointrange(aes(xmin=X25., xmax=X75.), size = 1.8, fatten = 1.8) +
+    labs(title = "Model 3: Contrasts of posterior predictive distribution",
+         x = "80% and 50% intervals of predicted distribution of score differences")
+```
+
+Now let us again compare this with the results from Model 2.
+
+```{r}
+bind_rows("2" = pi_contr2, "3" = pi_contr3, .id = "model") %>%
+    ggplot(aes(y=contrast, x=X50., color=model)) +
+    geom_pointrange(aes(xmin=X10., xmax=X90.), size = 0.5, position=position_dodge(0.5)) +
+    geom_pointrange(aes(xmin=X25., xmax=X75.), size = 1.8, fatten = 1.8, position=position_dodge(0.5)) +
+    labs(title = "Comparison of Models 2 and 3: Contrasts of posterior predictive distribution",
+         x = "80% and 50% intervals of predicted distribution of score differences")
+```
+
+There is no dramatic effect on predictions when we include interactions, but there are slight changes.
+
+### Indicator variables
+
+Now let's go back and do the same analysis using indicator variables. We expect our predictions to be the same as with index variables.
+
+First, we create a new data frame containing everything we need and nothing more.
+
+```{r}
+wines_df3 <- wines %>% select(std_score, white, wine_amer, judge_amer)
+```
+
+Then we specify our model. In order to be as close to the index variable model as possible, we also include the three-way interaction between flight, wine origin, and judge origin. This gives us four interactions terms (the last four summands contributing to mu) instead of just the three two-way interactions mentioned in the instructions.
+
+```{r}
+wine_m3a <- ulam(
+    alist(
+        std_score ~ dnorm(mu, sigma),
+        mu <- a + b_w*white + b_wa*wine_amer + b_ja*judge_amer + b_w_wa*white*wine_amer + b_w_ja*white*wine_amer + b_wa_ja*wine_amer*judge_amer + b_w_wa_ja*white*wine_amer*judge_amer,
+        a         ~ dnorm(0, 0.2),
+        b_w       ~ dnorm(0, 0.5),
+        b_wa      ~ dnorm(0, 0.5),
+        b_ja      ~ dnorm(0, 0.5),
+        b_w_wa    ~ dnorm(0, 0.5),
+        b_w_ja    ~ dnorm(0, 0.5),
+        b_wa_ja   ~ dnorm(0, 0.5),
+        b_w_wa_ja ~ dnorm(0, 0.5),
+        sigma ~ dexp(1)
+    ),
+    data = wines_df3,
+    chains = 4,
+    refresh = 0
+)
+```
+
+```{r}
+precis(wine_m3a)
+```
+
+```{r}
+plot(precis(wine_m3a))
+```
+
+```{r}
+score_post_pred3a <- sim(wine_m3a,
+                         data = data.frame(white = c(0,1,0,1,0,1,0,1),
+                                           wine_amer = c(0,0,1,1,0,0,1,1),
+                                           judge_amer = c(0,0,0,0,1,1,1,1)))
+colnames(score_post_pred3a) <- c("r_wf_jf",
+                                 "w_wf_jf",
+                                 "r_wa_jf",
+                                 "w_wa_jf",
+                                 "r_wf_ja",
+                                 "w_wf_ja",
+                                 "r_wa_ja",
+                                 "w_wa_ja")
+```
+
+```{r}
+(pi_score_post_pred3a <- apply(score_post_pred3a, 2 , quantile, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)) %>% t)
+```
+
+
+```{r}
+(pi_score_post_pred3a <- pi_score_post_pred3a %>%
+    data.frame %>%
+    rownames_to_column %>%
+    as_tibble %>%
+    rename(condition = rowname) %>%
+    mutate(condition = as_factor(condition)) %>%
+    mutate(condition = fct_rev(condition)))
+```
+
+
+```{r}
+pi_score_post_pred3a %>% ggplot(aes(y=condition, x=X50.)) +
+    geom_pointrange(aes(xmin=X10., xmax=X90.), size = 0.5) +
+    geom_pointrange(aes(xmin=X25., xmax=X75.), size = 1.8, fatten = 1.8) +
+    labs(title = "Model 3a: Posterior predictive distribution by condition",
+         x = "80% and 50% intervals of predicted distribution of scores")
+```
+
+Comparing with Model 3 tells us whether the predictions are indeed the same.
+
+```{r}
+bind_rows("3" = pi_score_post_pred3, "3a" = pi_score_post_pred3a, .id = "model") %>%
+    ggplot(aes(y=condition, x=X50., color=model)) +
+    geom_pointrange(aes(xmin=X10., xmax=X90.), size = 0.5, position=position_dodge(0.5)) +
+    geom_pointrange(aes(xmin=X25., xmax=X75.), size = 1.8, fatten = 1.8, position=position_dodge(0.5)) +
+    labs(title = "Comparison of Models 3 and 3a: Posterior predictive distribution by condition",
+         x = "80% and 50% intervals of predicted distribution of scores")
+```
+
+The predictions of the two models are very similar, but not exactly the same. This is mostly because we did not draw very large samples. Try running the code again and you will see the predictions change somewhat because of sampling variation. This can be avoided by using larger samples.
+
+There is also another effect at work: the structure of the priors is different in the two models. In the index variable formulation (Model 3) each condition's prediction depends on only one intercept parameter, while in the indicator variable formulation (Model 3a) conditions are subject to the effects of a combination of intercept, main effect, and interaction parameters. While both formulations work, I prefer Model 3 because its formulation is clearer and there is no imbalance in the way the priors influence the estimate of each condition.
+
+> **9E1.** Which of the following is a requirement of the simple Metropolis algorithm?
+>
+> (1) The parameters must be discrete.
+> (2) The likelihood must be Gaussian.
+> (3) The proposal distribution must be symmetric.
+
+Only (3). Note: the _Metropolis-Hastings algorithm_ is a generalization of the simple Metropolis algorithm which allows for asymmetric proposal distributions.
+
+> **9E3.** Which sort of parameters can Hamiltonian Monte Carlo not handle? Can you explain why?
+
+Discrete parameters. The algorithm simulates physical trajectories of a particle in continuous space. Therefore it does not work for discrete parameters.
+
+> **9E4.** Explain the difference between the effective number of samples, `n_eff` as calculated by Stan, and the actual number of samples.
+
+Autocorrelation reduces the amount of information contained in a sample. The effective number of samples (loosely spoken - speaking more pedantically, this would be the _effective number of points in the sample_) is the number of independent (non-autocorrelated) sampled points which would contain the same amount of information as our actual sample.
+
+> **9E5.** Which value should `Rhat` approach, when a chain is sampling the posterior distribution correctly?
+
+1.
+
+> **9E6.** Sketch a good trace plot for a Markov chain, one that is effectively sampling from the posterior distribution. What is good about its shape? Then sketch a trace plot for a malfunctioning Markov chain. What about its shape indicates malfunction?
+
+_Good:_ looks like a hairy caterpillar; chains on top of each other. _Bad:_ looks like a meandering river and/or chains do not overlap.
+
+> **9E7.** Repeat the problem above, but now for a trace rank plot.
+
+_Good:_ chain at the top changes frequently _Bad:_ one chain dominates for long periods of time.
