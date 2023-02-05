@@ -7,7 +7,7 @@ This course wraps up the series of methods courses. We look at modelling from a 
 
 ## Materials and Literature
 
-The course is based on the textbook *Statistical Rethinking* (2nd edition, 2020) by Richard McElreath<sup>1</sup>. Please get a copy. The book's [homepage](https://xcelab.net/rm/statistical-rethinking/) contains lots of additional resources. In particular, please install the [R package `rethinking`](https://github.com/rmcelreath/rethinking). Slides and recordings of [the author's current course](https://github.com/rmcelreath/stat_rethinking_2022) and of a [previous version](https://github.com/rmcelreath/statrethinking_winter2019) from 2019 are also available.
+The course is based on the textbook *Statistical Rethinking* (2nd edition, 2020) by Richard McElreath<sup>1</sup>. Please get a copy. The book's [homepage](https://xcelab.net/rm/statistical-rethinking/) contains lots of additional resources. In particular, please install the [R package `rethinking`](https://github.com/rmcelreath/rethinking). Slides and recordings of [the author's current course](https://github.com/rmcelreath/stat_rethinking_2023) and of previous versions from [2019](https://github.com/rmcelreath/statrethinking_winter2019) and [2022](https://github.com/rmcelreath/stat_rethinking_2022) are also available.
 
 <sup>1</sup>McElreath, R. (2020). *Statistical Rethinking: A Bayesian Course with Examples in R and Stan (2nd ed.).* Chapman and Hall/CRC. [doi:10.1201/9780429029608](https://doi.org/10.1201/9780429029608)
 
@@ -31,7 +31,7 @@ The course is based on the textbook *Statistical Rethinking* (2nd edition, 2020)
 
 ## Flipped classroom
 
-We will be using a so-called 'flipped classroom' in this course. This means that you are generally expected to have read the literature and wathched the vidoes before coming to the lecture. The purpose of the lecture then is for you to ask questions (the more, the better!) so that we can go over the material again together, deepening and broadening our understanding of it.
+We will be using a so-called 'flipped classroom' in this course. This means that you are generally expected to have read the literature and watched the vidoes before coming to the lecture. The purpose of the lecture then is for you to ask questions (the more, the better!) so that we can go over the material again together, deepening and broadening our understanding of it.
 
 ## Slack workspace
 
