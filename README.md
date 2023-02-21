@@ -19,7 +19,7 @@ The course is based on the textbook *Statistical Rethinking* (2nd edition, 2020)
 | 1           | 6            | Statistical models (chapters 1,2)                                       |
 | 2           | 7            | Distributions and sampling (chapters 2,3)                               |
 | 3           | 8            | Gaussian models and linear regression (chapter 4)                       |
-| 4           | 10           | Several predictors, directed acyclic graphs (chapters 5)                |
+| 4           | 10           | Several predictors, directed acyclic graphs (chapter 5)                 |
 | 5           | 11           | Causal inference (chapter 6)                                            |
 | 6           | 13           | Model comparison (chapter 7)                                            |
 | 7           | 15           | Interactions (chapter 8)                                                |
